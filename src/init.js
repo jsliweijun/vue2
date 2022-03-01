@@ -1,4 +1,5 @@
-import { complileToFuntion } from './compiler/index';
+import { compileToFunction } from './compiler/index';
+import { mountComponent } from './lifecycle';
 import { initState } from './state';
 
 //  在 vue 上进行一次混合操作，扩展添加方法
@@ -26,14 +27,20 @@ export function initMixin(Vue) {
         const vm = this;
         const options = vm.$options;
         el = document.querySelector(el);
+        vm.$el = el;
         // 把模版转化成 对应的渲染函数  =》 虚拟 DOM 概念， vnode  =》 diff 算法 更新虚拟dom =》 产生真实的节点，更新
         if (!options.render) {
             let template = options.template;
             if (!template && el) {
                 template = el.outerHTML;
-                let render = complileToFuntion(template);
+                let render = compileToFunction(template);
                 options.render = render; // 就是渲染函数
             }
         }
+        // options.render  就是渲染函数
+        console.log(options.render); // 调用render 方法 ，渲染成真实 dom 替换掉页面的内容
+
+        // new Vue() 的过程叫做组件，这个组件能自动实现组件挂载，放在真实的页面中。
+        mountComponent(vm, el); // 组件的挂载流程，挂载到 el 元素上。在生命周期的方法中执行完成挂载
     };
 }

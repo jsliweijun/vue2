@@ -1,4 +1,6 @@
 import { initMixin } from './init';
+import { renderMixin } from './render';
+import { lifecycleMixin } from './lifecycle';
 
 // Vue 是一个构造函数
 function Vue(options) {
@@ -11,5 +13,7 @@ function Vue(options) {
 // 给构造函数，添加实例公共方法
 // 扩展原型
 initMixin(Vue);
+renderMixin(Vue); // _render
+lifecycleMixin(Vue); // _update
 
 export default Vue;
