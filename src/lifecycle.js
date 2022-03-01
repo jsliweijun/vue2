@@ -1,3 +1,4 @@
+import Watcher from './observer/watcher';
 import { patch } from './vdom/patch';
 
 export function lifecycleMixin(Vue) {
@@ -5,7 +6,7 @@ export function lifecycleMixin(Vue) {
     Vue.prototype._update = function (vnode) {
         console.log('update', vnode);
         const vm = this;
-        patch(vm.$el, vnode);
+        vm.$el = patch(vm.$el, vnode);
     };
 }
 
@@ -18,5 +19,16 @@ export function mountComponent(vm, el) {
         // 用虚拟 dom 生成真实 dom
     };
 
-    updateComponent();
+    // 使用观察者模式，实现数据变化页面更新： 属性是“被观察者”  ， 刷新页面：“观察者”
+    // updateComponent();
+
+    // 他是一个渲染watcher ，后续还有其他watcher
+    new Watcher(
+        vm,
+        updateComponent,
+        () => {
+            console.log('更新视图了');
+        },
+        true
+    );
 }

@@ -268,56 +268,6 @@
       // =》 虚拟 DOM （增加额外的属性） =》 生成真实 dom
     }
 
-    function patch(oldVnode, vnode) {
-      if (oldVnode.nodeType == 1) {
-        // 用vnode  来生成真实dom 替换原来的 dom 元素
-        var parentElm = oldVnode.parentNode;
-        var elm = createElm(vnode);
-        parentElm.insertBefore(elm, oldVnode.nextSibling);
-        parentElm.removeChild(oldVnode);
-      }
-    }
-
-    function createElm(vnode) {
-      var tag = vnode.tag;
-          vnode.data;
-          var children = vnode.children,
-          text = vnode.text;
-          vnode.vm;
-
-      if (typeof tag === 'string') {
-        vnode.el = document.createElement(tag);
-        children.forEach(function (child) {
-          vnode.el.appendChild(createElm(child));
-        });
-      } else {
-        vnode.el = document.createTextNode(text);
-      }
-
-      return vnode.el;
-    }
-
-    function lifecycleMixin(Vue) {
-      // 传入的是 虚拟dom 节点, 虚拟dom 变成真实dom
-      Vue.prototype._update = function (vnode) {
-        console.log('update', vnode);
-        var vm = this;
-        patch(vm.$el, vnode);
-      };
-    }
-    function mountComponent(vm, el) {
-      // vue的实现很简单：做了个更新方法（初次执行，内容更新后执行）
-      // 更新函数，数据变化后，会再次调用此函数
-      var updateComponent = function updateComponent() {
-        // 调用 render函数，生成虚拟 DOM
-        vm._update(vm._render()); // 后续更新可以调用 updateComponent方法。 这两个实例方法在哪写？
-        // 用虚拟 dom 生成真实 dom
-
-      };
-
-      updateComponent();
-    }
-
     function _typeof(obj) {
       "@babel/helpers - typeof";
 
@@ -351,6 +301,67 @@
         writable: false
       });
       return Constructor;
+    }
+
+    var Watcher = /*#__PURE__*/_createClass( //  vm,  updateComponent,  () => {  console.log('更新视图了');   },   true
+    function Watcher() {
+      _classCallCheck(this, Watcher);
+    });
+
+    function patch(oldVnode, vnode) {
+      if (oldVnode.nodeType == 1) {
+        // 用vnode  来生成真实dom 替换原来的 dom 元素
+        var parentElm = oldVnode.parentNode;
+        var elm = createElm(vnode);
+        parentElm.insertBefore(elm, oldVnode.nextSibling);
+        parentElm.removeChild(oldVnode);
+        return elm;
+      }
+    }
+
+    function createElm(vnode) {
+      var tag = vnode.tag;
+          vnode.data;
+          var children = vnode.children,
+          text = vnode.text;
+          vnode.vm;
+
+      if (typeof tag === 'string') {
+        vnode.el = document.createElement(tag);
+        children.forEach(function (child) {
+          vnode.el.appendChild(createElm(child));
+        });
+      } else {
+        vnode.el = document.createTextNode(text);
+      }
+
+      return vnode.el;
+    }
+
+    function lifecycleMixin(Vue) {
+      // 传入的是 虚拟dom 节点, 虚拟dom 变成真实dom
+      Vue.prototype._update = function (vnode) {
+        console.log('update', vnode);
+        var vm = this;
+        vm.$el = patch(vm.$el, vnode);
+      };
+    }
+    function mountComponent(vm, el) {
+      // vue的实现很简单：做了个更新方法（初次执行，内容更新后执行）
+      // 更新函数，数据变化后，会再次调用此函数
+      var updateComponent = function updateComponent() {
+        // 调用 render函数，生成虚拟 DOM
+        vm._update(vm._render()); // 后续更新可以调用 updateComponent方法。 这两个实例方法在哪写？
+        // 用虚拟 dom 生成真实 dom
+
+      }; // 使用观察者模式，实现数据变化页面更新： 属性是“被观察者”  ， 刷新页面：“观察者”
+      // updateComponent();
+      // 他是一个渲染watcher ，后续还有其他watcher
+
+
+      new Watcher(vm, updateComponent, function () {
+        console.log('更新视图了');
+      }, true);
     }
 
     function isFunction(val) {
