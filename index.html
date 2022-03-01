@@ -17,7 +17,8 @@
             let vm = new Vue({
                 el: '#app',
                 data: {
-                    name: 'zm'
+                    name: 'zm',
+                    arr: [{ name: 'zs' }]
                 },
                 watch: {
                     // this 是 vue 实例
@@ -25,6 +26,19 @@
             });
 
             // vm.$options
+
+            // 用户很少通过索引操作数组， arr[10]=xxx 。
+            // 所以 框架底层 就不对索引进行拦截，因为消耗严重，内部数组不采用 defineProperty 处理。
+            // 进行修改数组原型中的 push shift  pop  unshift  reverse  sort  splice 这7个变异方法进行重写
+
+            // 数组没有监控 索引的变化，但是索引对应的内容是对象类型，需要被监控
+            // vm.arr[0].name;
+
+            // 指定模版挂载的方式
+            // 1 写 el:"#app" 参数方式
+            // 2. 手动指定  vm.$mount("#app")
+            // 3. 用户传入 render(){ return  h('div',{calss:'xxx'},"hello")} 方法，不使用页面 div了，
+            // 4. 设置 template:"<div>hello</div>"
         </script>
     </body>
 </html>

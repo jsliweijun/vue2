@@ -1,3 +1,4 @@
+import { complileToFuntion } from './compiler/index';
 import { initState } from './state';
 
 //  在 vue 上进行一次混合操作，扩展添加方法
@@ -9,6 +10,30 @@ export function initMixin(Vue) {
         vm.$options = options; // 选项，用户使用时会调用 $options ,所以框架底层进行这样创建，后面会扩展他
 
         // 对数据进行初始化，watch  computed props  data ，都是数据
+        //  数据劫持：就是当操作数据时，让我们知道了修改了，获取了这个数据，然后我们就可以进行做 更新试图 等功能。
+        // 加get set 方法，第一步是加了数据监控等功能，
         initState(vm); // vm.$options.data 将数据处理放在另外一个方法中，状态初始化
+
+        // 将数据挂在 模版上
+        if (vm.$options.el) {
+            // 将数据挂载到这个模板上
+            vm.$mount(vm.$options.el);
+        }
+        // 有可能传入 template：“” ， render:h() //优先级高
+    };
+
+    Vue.prototype.$mount = function (el) {
+        const vm = this;
+        const options = vm.$options;
+        el = document.querySelector(el);
+        // 把模版转化成 对应的渲染函数  =》 虚拟 DOM 概念， vnode  =》 diff 算法 更新虚拟dom =》 产生真实的节点，更新
+        if (!options.render) {
+            let template = options.template;
+            if (!template && el) {
+                template = el.outerHTML;
+                let render = complileToFuntion(template);
+                options.render = render; // 就是渲染函数
+            }
+        }
     };
 }
