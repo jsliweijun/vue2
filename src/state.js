@@ -18,6 +18,17 @@ export function initState(vm) {
     // }
 }
 
+function proxy(vm, source, key) {
+    Object.defineProperty(vm, key, {
+        get() {
+            return vm[source][key];
+        },
+        set(newValue) {
+            vm[source][key] = newValue;
+        }
+    });
+}
+
 // 用户传入的数据，要将它们变成响应式的。怎么做呢？
 function initData(vm) {
     let data = vm.$options.data;
@@ -27,6 +38,13 @@ function initData(vm) {
     // vm 和 data 没有任何关系，通过 _data 进行关联
     data = vm._data = isFunction(data) ? data.call(vm) : data;
     // console.log(data, '----');
+
+    // 将 data 中数据代理到 vm上， 可以直接到 vm 获取数据
+    // 用户 vm.name 等价于 vm._data.name
+    for (let key in data) {
+        proxy(vm, '_data', key);
+    }
+
     //  这里就获取到数据了，就要进行数据的响应式功能
     observe(data);
 }
