@@ -417,6 +417,7 @@
         this.exprOrFn = exprOrFn;
         this.user = !!options.user; // 标识是不是用户 watcher
 
+        this.lazy = !!options.lazy;
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -440,10 +441,11 @@
           };
         } else {
           this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
-        } // 第一次的vlaue
+        } // 计算属性，第一次不取值
+        // 第一次的vlaue
 
 
-        this.value = this.get(); // 默认初始化， 要取值
+        this.value = this.lazy ? undefined : this.get(); // 默认初始化， 要取值
       }
 
       _createClass(Watcher, [{
@@ -736,10 +738,11 @@
       if (opts.data) {
         initData(vm);
       } // computed 与 watch 的区别
-      // if (opts.computed) {
-      //     initComputed();
-      // }
 
+
+      if (opts.computed) {
+        initComputed(vm, opts.computed);
+      }
 
       if (opts.watch) {
         initWatch(vm, opts.watch);
@@ -807,6 +810,35 @@
 
     function createWatcher(vm, key, handler) {
       return vm.$watch(key, handler);
+    } // 多个计算属性，多个 watcher
+
+
+    function initComputed(vm, computed) {
+      for (var key in computed) {
+        var userDef = computed[key]; // 依赖的属性变化就重新取值 get
+
+        var getter = typeof userDef == 'function' ? userDef : userDef.get; // 每个计算属性就是 watcher
+
+        new Watcher(vm, getter, function () {}, {
+          lazy: true
+        }); // 默认不执行
+        // 将 key 定义在 vm 上， 才有了计算属性能使用
+
+        defineComputed(vm, key, userDef); // 就是一个 defineProperty
+      }
+    }
+
+    function defineComputed(vm, key, userDef) {
+      var sharedProperty = {};
+
+      if (typeof userDef == 'function') {
+        sharedProperty.get = userDef;
+      } else {
+        sharedProperty.get = userDef.get;
+        sharedProperty.set = userDef.set;
+      }
+
+      Object.defineProperty(vm, key, sharedProperty);
     }
 
     function initMixin(Vue) {

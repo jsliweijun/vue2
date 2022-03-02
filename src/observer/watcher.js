@@ -11,6 +11,7 @@ class Watcher {
         this.vm = vm;
         this.exprOrFn = exprOrFn;
         this.user = !!options.user; // 标识是不是用户 watcher
+        this.lazy = !!options.lazy;
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -37,8 +38,9 @@ class Watcher {
             this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
         }
 
+        // 计算属性，第一次不取值
         // 第一次的vlaue
-        this.value = this.get(); // 默认初始化， 要取值
+        this.value = this.lazy ? undefined : this.get(); // 默认初始化， 要取值
     }
 
     get() {

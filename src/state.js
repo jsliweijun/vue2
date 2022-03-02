@@ -11,9 +11,9 @@ export function initState(vm) {
     }
 
     // computed 与 watch 的区别
-    // if (opts.computed) {
-    //     initComputed();
-    // }
+    if (opts.computed) {
+        initComputed(vm, opts.computed);
+    }
     if (opts.watch) {
         initWatch(vm, opts.watch);
     }
@@ -83,4 +83,31 @@ function initWatch(vm, watch) {
 
 function createWatcher(vm, key, handler) {
     return vm.$watch(key, handler);
+}
+
+// 多个计算属性，多个 watcher
+function initComputed(vm, computed) {
+    for (let key in computed) {
+        const userDef = computed[key];
+
+        // 依赖的属性变化就重新取值 get
+        let getter = typeof userDef == 'function' ? userDef : userDef.get;
+
+        // 每个计算属性就是 watcher
+        new Watcher(vm, getter, () => {}, { lazy: true }); // 默认不执行
+
+        // 将 key 定义在 vm 上， 才有了计算属性能使用
+        defineComputed(vm, key, userDef); // 就是一个 defineProperty
+    }
+}
+
+function defineComputed(vm, key, userDef) {
+    let sharedProperty = {};
+    if (typeof userDef == 'function') {
+        sharedProperty.get = userDef;
+    } else {
+        sharedProperty.get = userDef.get;
+        sharedProperty.set = userDef.set;
+    }
+    Object.defineProperty(vm, key, sharedProperty);
 }

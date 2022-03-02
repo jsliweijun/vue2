@@ -7,7 +7,7 @@
         <title>Document</title>
     </head>
     <body>
-        <div id="app">{{name}}</div>
+        <div id="app">{{fullName}} ----- {{fullName}}</div>
         <!-- <script src="./node_modules/vue/dist/vue.js"></script> -->
         <script src="./dist/vue.js"></script>
         <script>
@@ -16,10 +16,28 @@
                 el: '#app',
                 data: {
                     name: 'zs',
-                    age: { n: 100 }
+                    age: { n: 100 },
+                    firstName: 'zhang',
+                    lastName: 'san'
                 },
                 methods: {
                     test() {}
+                },
+                computed: {
+                    // object.defineProperty  => getter
+                    fullName() {
+                        // 一个计算属性就是一个 watcher ， 下面的属性会收集它
+                        console.log('computed 没有缓存');
+                        return this.firstName + this.lastName;
+                    },
+                    fName: {
+                        get() {
+                            return 'xxx';
+                        },
+                        set(newValue) {
+                            console.log(newValue);
+                        }
+                    }
                 },
                 watch: {
                     name(newValue, oldValue) {
@@ -29,12 +47,22 @@
                 }
             });
 
-            vm.$watch('name', () => {
-                console.log('----------');
-            });
-            setTimeout(() => {
-                vm.name = 3;
-            }, 1000);
+            // vm.$watch('name', () => {
+            //     console.log('----------');
+            // });
+            // setTimeout(() => {
+            //     vm.name = 3;
+            // }, 1000);
+
+            // 测试 计算属性
+
+            vm.fullName;
+            vm.fullName;
+            vm.fullName;
+
+            // setTimeout(() => {
+            //     vm.firstName = 77777;
+            // }, 1000);
         </script>
     </body>
 </html>
