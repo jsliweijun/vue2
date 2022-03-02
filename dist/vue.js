@@ -303,10 +303,107 @@
       return Constructor;
     }
 
-    var Watcher = /*#__PURE__*/_createClass( //  vm,  updateComponent,  () => {  console.log('更新视图了');   },   true
-    function Watcher() {
-      _classCallCheck(this, Watcher);
-    });
+    var id$1 = 0;
+
+    var Dep = /*#__PURE__*/function () {
+      function Dep() {
+        _classCallCheck(this, Dep);
+
+        this.id = id$1++;
+        this.subs = [];
+      }
+
+      _createClass(Dep, [{
+        key: "depend",
+        value: function depend() {
+          // Dep.target  dep 里面要存放这个 watcher， watcher要存放dep  多对多的关系
+          if (Dep.target) {
+            Dep.target.addDep(this);
+          }
+        }
+      }, {
+        key: "addSub",
+        value: function addSub(watcher) {
+          this.subs.push(watcher);
+        }
+      }, {
+        key: "notify",
+        value: function notify() {
+          console.log('notify');
+          this.subs.forEach(function (watcher) {
+            watcher.update();
+          });
+        }
+      }]);
+
+      return Dep;
+    }();
+
+    Dep.target = null;
+    function pushTarget(watcher) {
+      Dep.target = watcher;
+    }
+    function popTarget() {
+      Dep.target = null;
+    }
+
+    var id = 0; // 一个watcher 可以理解为一个组件，这个组件上使用了多个属性 {{name}} {{age}}
+    // 所以需要记住多个 dep ，每个dep 就是一个属性
+
+    var Watcher = /*#__PURE__*/function () {
+      //  vm,  updateComponent,  () => {  console.log('更新视图了');   },   true
+      function Watcher(vm, exprOrFn, cb, options) {
+        _classCallCheck(this, Watcher);
+
+        this.vm = vm;
+        this.exprOrFn = exprOrFn;
+        this.cb = cb;
+        this.options = options;
+        this.id = id++; // 每个实例都身份证号
+
+        this.deps = [];
+        this.depsId = new Set(); // 默认应该让 exprOrFn 执行， exprOrFn 方法做了什么？ 执行render （去vm 上进行取值了），所以可以理解为 getter
+
+        this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
+
+        this.get(); // 默认初始化， 要取值
+      }
+
+      _createClass(Watcher, [{
+        key: "get",
+        value: function get() {
+          // 稍后用户更新时，可以重新调研 getter 方法
+          // 执行下面方法，会执行属性的 defineProperty.get 方法， 每个属性都可以收集自己的 watcher
+          // 希望一个属性可以对应多个 watcher ，同时一个 watcher 可以对应多个属性。 使用 dep 管理它们多对多的关系。
+          pushTarget(this); // Dep.target = watcher
+
+          this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
+
+          popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
+        }
+      }, {
+        key: "update",
+        value: function update() {
+          console.log('属性更新，也没渲染，更新视图');
+          this.get();
+        } // 记住这个组件模版中使用了哪些属性数据 {{name}} {{name}}  {{age}}
+        // 一个模版中使用了 多次 name ，只需要记住一次就够了
+
+      }, {
+        key: "addDep",
+        value: function addDep(dep) {
+          var id = dep.id;
+
+          if (!this.depsId.has(id)) {
+            this.depsId.add(id);
+            this.deps.push(dep);
+            dep.addSub(this);
+          }
+        }
+      }]);
+
+      return Watcher;
+    }();
 
     function patch(oldVnode, vnode) {
       if (oldVnode.nodeType == 1) {
@@ -345,7 +442,8 @@
         var vm = this;
         vm.$el = patch(vm.$el, vnode);
       };
-    }
+    } // 后续每个组件渲染的时候都会有一个 watcher
+
     function mountComponent(vm, el) {
       // vue的实现很简单：做了个更新方法（初次执行，内容更新后执行）
       // 更新函数，数据变化后，会再次调用此函数
@@ -357,6 +455,7 @@
       }; // 使用观察者模式，实现数据变化页面更新： 属性是“被观察者”  ， 刷新页面：“观察者”
       // updateComponent();
       // 他是一个渲染watcher ，后续还有其他watcher
+      // 渲染一个组件
 
 
       new Watcher(vm, updateComponent, function () {
@@ -463,15 +562,27 @@
 
     function defineReactive(data, key, value) {
       observe(value); // 进行递归下面的属性,对象套对象
+      // 每个属性都有一个dep 属性，它记录有哪些组件使用到了这个属性
 
+      var dep = new Dep();
       Object.defineProperty(data, key, {
         get: function get() {
+          // 取值时，将 watcher 和 dep 对应起来
+          // 这个get调用，是模版中调用 {{name}} 进行取值
+          if (Dep.target) {
+            dep.depend(); // 让 dep记住 watcher
+          }
+
           return value;
         },
         set: function set(newV) {
-          // 把用户设置的值也进行劫持，赋值一个新对象
-          observe(newV);
-          value = newV;
+          // todo  更新视图
+          if (newV !== value) {
+            // 把用户设置的值也进行劫持，赋值一个新对象
+            observe(newV);
+            value = newV;
+            dep.notify(); // 告诉当前的属性存放的watcher 执行
+          }
         }
       });
     } // 观测数据

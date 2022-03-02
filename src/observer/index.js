@@ -1,5 +1,6 @@
 import { isObject } from '../utils';
 import { arrayMethods } from './array';
+import Dep from './dep';
 
 // 总结  vue源码中 响应式原理， 编译原理（模版）  diff算法。
 // 1. 如果数据是对象， 会将对象不停的递归 进行 劫持，（添加 get set 方法）
@@ -47,14 +48,27 @@ class Observer {
 // vue2 会对对象进行遍历，将每个属性 用 define Property 重新定义，性能差，不断递归
 function defineReactive(data, key, value) {
     observe(value); // 进行递归下面的属性,对象套对象
+
+    // 每个属性都有一个dep 属性，它记录有哪些组件使用到了这个属性
+    let dep = new Dep();
     Object.defineProperty(data, key, {
         get() {
+            // 取值时，将 watcher 和 dep 对应起来
+            // 这个get调用，是模版中调用 {{name}} 进行取值
+            if (Dep.target) {
+                dep.depend(); // 让 dep记住 watcher
+            }
             return value;
         },
         set(newV) {
-            // 把用户设置的值也进行劫持，赋值一个新对象
-            observe(newV);
-            value = newV;
+            // todo  更新视图
+
+            if (newV !== value) {
+                // 把用户设置的值也进行劫持，赋值一个新对象
+                observe(newV);
+                value = newV;
+                dep.notify(); // 告诉当前的属性存放的watcher 执行
+            }
         }
     });
 }

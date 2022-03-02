@@ -10,6 +10,7 @@ export function lifecycleMixin(Vue) {
     };
 }
 
+// 后续每个组件渲染的时候都会有一个 watcher
 export function mountComponent(vm, el) {
     // vue的实现很简单：做了个更新方法（初次执行，内容更新后执行）
     // 更新函数，数据变化后，会再次调用此函数
@@ -23,6 +24,7 @@ export function mountComponent(vm, el) {
     // updateComponent();
 
     // 他是一个渲染watcher ，后续还有其他watcher
+    // 渲染一个组件
     new Watcher(
         vm,
         updateComponent,
