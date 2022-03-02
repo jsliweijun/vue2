@@ -1,4 +1,5 @@
 import Watcher from './observer/watcher';
+import { nextTick } from './utils';
 import { patch } from './vdom/patch';
 
 export function lifecycleMixin(Vue) {
@@ -8,6 +9,9 @@ export function lifecycleMixin(Vue) {
         const vm = this;
         vm.$el = patch(vm.$el, vnode);
     };
+
+    // 扩展出一个异步更新方法，项目中使用，用户中也可以使用
+    Vue.prototype.$nextTick = nextTick;
 }
 
 // 后续每个组件渲染的时候都会有一个 watcher

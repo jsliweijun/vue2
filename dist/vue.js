@@ -347,6 +347,64 @@
       Dep.target = null;
     }
 
+    function isFunction(val) {
+      return typeof val === 'function';
+    }
+    function isObject(val) {
+      return _typeof(val) === 'object' && val !== null;
+    }
+    var callbacks = [];
+
+    function flushCallbacks() {
+      callbacks.forEach(function (cb) {
+        return cb();
+      });
+      waiting = false;
+    }
+
+    var waiting = false;
+    function nextTick(cb) {
+      callbacks.push(cb); // flushSchedulerQueue  /userCallback  都在这，
+
+      if (!waiting) {
+        // vue3 不考虑兼容性直接这样。
+        Promise.resolve().then(flushCallbacks);
+        waiting = true;
+      }
+    }
+
+    var queue = [];
+    var has = {}; //  做列表的， 列表为何存放了哪些 watcher
+
+    function flushSchedulerQueue() {
+      for (var i = 0; i < queue.length; i++) {
+        queue[i].run();
+      }
+
+      queue = [];
+      has = {};
+      pending = false;
+    }
+
+    var pending = false; // 这里开启异步操作，要等待同步代码执行完才进行执行异步逻辑 update ，虚拟变真实dom
+
+    function queueWatcher(watcher) {
+      var id = watcher.id;
+
+      if (has[id] == null) {
+        queue.push(watcher);
+        has[id] = true; // 开启一次更新操作， 批处理（防抖）
+
+        if (!pending) {
+          // 当前执行栈中代码执行完毕后，会先清空微任务，再清空宏任务，希望尽早更新页面，就不要用setTimeout ，它是宏任务 。 vue 中自己 封装了一个 nextTick
+          // 异步操作
+          // setTimeout(flushSchedulerQueue, 0);
+          nextTick(flushSchedulerQueue);
+          pending = true;
+        }
+      }
+    }
+
     var id = 0; // 一个watcher 可以理解为一个组件，这个组件上使用了多个属性 {{name}} {{age}}
     // 所以需要记住多个 dep ，每个dep 就是一个属性
 
@@ -380,11 +438,22 @@
           this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
 
           popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
-        }
+        } // vue 中的更新操作是异步的
+
       }, {
         key: "update",
         value: function update() {
-          console.log('属性更新，也没渲染，更新视图');
+          //  console.log(
+          //     '属性更新，也没渲染，更新视图， 这种方式多次修改，更新视图多次，性能不好。实现异步更新'
+          // );
+          // this.get();
+          // 每次更新时，就是 this 执行， 就是 watcher 执行，可以将 watcher 缓存起来，最后一次一起执行更新，
+          // 采用异步更新
+          queueWatcher(this);
+        }
+      }, {
+        key: "run",
+        value: function run() {
           this.get();
         } // 记住这个组件模版中使用了哪些属性数据 {{name}} {{name}}  {{age}}
         // 一个模版中使用了 多次 name ，只需要记住一次就够了
@@ -441,7 +510,10 @@
         console.log('update', vnode);
         var vm = this;
         vm.$el = patch(vm.$el, vnode);
-      };
+      }; // 扩展出一个异步更新方法，项目中使用，用户中也可以使用
+
+
+      Vue.prototype.$nextTick = nextTick;
     } // 后续每个组件渲染的时候都会有一个 watcher
 
     function mountComponent(vm, el) {
@@ -461,13 +533,6 @@
       new Watcher(vm, updateComponent, function () {
         console.log('更新视图了');
       }, true);
-    }
-
-    function isFunction(val) {
-      return typeof val === 'function';
-    }
-    function isObject(val) {
-      return _typeof(val) === 'object' && val !== null;
     }
 
     var oldArrayPrototype = Array.prototype;

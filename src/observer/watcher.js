@@ -1,4 +1,5 @@
 import { popTarget, pushTarget } from './dep';
+import { queueWatcher } from './scheduler';
 
 let id = 0;
 
@@ -33,8 +34,20 @@ class Watcher {
         popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
     }
 
+    // vue 中的更新操作是异步的
     update() {
-        console.log('属性更新，也没渲染，更新视图');
+        //  console.log(
+        //     '属性更新，也没渲染，更新视图， 这种方式多次修改，更新视图多次，性能不好。实现异步更新'
+        // );
+        // this.get();
+
+        // 每次更新时，就是 this 执行， 就是 watcher 执行，可以将 watcher 缓存起来，最后一次一起执行更新，
+        // 采用异步更新
+
+        queueWatcher(this);
+    }
+
+    run() {
         this.get();
     }
 
