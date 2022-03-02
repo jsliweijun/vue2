@@ -36,11 +36,11 @@
 
     var root = null; // 根元素
 
-    var stack = []; // 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
+    var stack$1 = []; // 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
 
     function start(tagName, attribute) {
       // console.log(tagName,attribute)
-      var parent = stack[stack.length - 1];
+      var parent = stack$1[stack$1.length - 1];
       var element = createAstElement(tagName, attribute);
 
       if (!root) {
@@ -53,12 +53,12 @@
         parent.children.push(element);
       }
 
-      stack.push(element);
+      stack$1.push(element);
     }
 
     function end(tagName) {
       // console.log(tagName)
-      var last = stack.pop();
+      var last = stack$1.pop();
 
       if (last.tag !== tagName) {
         throw new Error('标签有错误');
@@ -68,7 +68,7 @@
     function chars(text) {
       // console.log(text)
       text = text.replace(/\s/g, '');
-      var parent = stack[stack.length - 1];
+      var parent = stack$1[stack$1.length - 1];
 
       if (text) {
         parent.children.push({
@@ -340,11 +340,14 @@
     }();
 
     Dep.target = null;
+    var stack = [];
     function pushTarget(watcher) {
       Dep.target = watcher;
+      stack.push(watcher);
     }
     function popTarget() {
-      Dep.target = null;
+      stack.pop();
+      Dep.target = stack[stack.length - 1];
     }
 
     function isFunction(val) {
@@ -418,6 +421,8 @@
         this.user = !!options.user; // 标识是不是用户 watcher
 
         this.lazy = !!options.lazy;
+        this.dirty = options.lazy; // 如果是计算属性，那么默认值 lazy,dirty 都是 true
+
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -456,7 +461,7 @@
           // 希望一个属性可以对应多个 watcher ，同时一个 watcher 可以对应多个属性。 使用 dep 管理它们多对多的关系。
           pushTarget(this); // Dep.target = watcher
 
-          var value = this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
+          var value = this.getter.call(this.vm); // render（） 方法对取 vm 上取值， vm._update(vm._render())
 
           popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
 
@@ -472,7 +477,12 @@
           // this.get();
           // 每次更新时，就是 this 执行， 就是 watcher 执行，可以将 watcher 缓存起来，最后一次一起执行更新，
           // 采用异步更新
-          queueWatcher(this);
+          // queueWatcher(this);
+          if (this.lazy) {
+            this.dirty = true;
+          } else {
+            queueWatcher(this);
+          }
         } // 用户更新会执行这个方法
 
       }, {
@@ -497,6 +507,24 @@
             this.depsId.add(id);
             this.deps.push(dep);
             dep.addSub(this);
+          }
+        } // 计算属性 重新 get，计算出最新的值
+
+      }, {
+        key: "evaluate",
+        value: function evaluate() {
+          this.dirty = false; // 不需要重新get求值了
+
+          this.value = this.get();
+        } // 计算属性 记住了 它的依赖属性。 也需要 被依赖是 firstName lastName 也记住计算属性
+
+      }, {
+        key: "depend",
+        value: function depend() {
+          var i = this.deps.length;
+
+          while (i--) {
+            this.deps[i].depend(); //firstName lastName 收集渲染watcher
           }
         }
       }]);
@@ -685,8 +713,9 @@
       var dep = new Dep();
       Object.defineProperty(data, key, {
         get: function get() {
-          // 取值时，将 watcher 和 dep 对应起来
+          console.log(dep, key); // 取值时，将 watcher 和 dep 对应起来
           // 这个get调用，是模版中调用 {{name}} 进行取值
+
           if (Dep.target) {
             dep.depend(); // 让 dep记住 watcher
 
@@ -814,12 +843,15 @@
 
 
     function initComputed(vm, computed) {
+      var watchers = vm._computedWatchers = {};
+
       for (var key in computed) {
         var userDef = computed[key]; // 依赖的属性变化就重新取值 get
 
         var getter = typeof userDef == 'function' ? userDef : userDef.get; // 每个计算属性就是 watcher
+        // 将watcher 和 计算属性 做映射
 
-        new Watcher(vm, getter, function () {}, {
+        watchers[key] = new Watcher(vm, getter, function () {}, {
           lazy: true
         }); // 默认不执行
         // 将 key 定义在 vm 上， 才有了计算属性能使用
@@ -828,13 +860,36 @@
       }
     }
 
+    function createComputedGetter(key) {
+      // 取计算属性的值，走的是这个函数
+      return function computedGetter() {
+        // this._computedWatchers 包含所有的计算属性
+        // 通过key 可以拿到对应的 watcher ， 这个watcher 包含了 getter
+        var watcher = this._computedWatchers[key];
+        console.log(watcher.dirty); // 根据 dirty 属性，判断是否需要重新求值，实现缓存功能
+
+        if (watcher.dirty) {
+          watcher.evaluate();
+        } // 如果当前取完值后 Dep.target 还有值，需要继续向上收集
+
+
+        if (Dep.target) {
+          // 计算属性 watcher 内部有两个 dep  firstName ，lastName
+          watcher.depend(); // watcher 里 对应了 多个 dep
+        }
+
+        return watcher.value;
+      };
+    }
+
     function defineComputed(vm, key, userDef) {
+      console.log('-----------');
       var sharedProperty = {};
 
       if (typeof userDef == 'function') {
         sharedProperty.get = userDef;
       } else {
-        sharedProperty.get = userDef.get;
+        sharedProperty.get = createComputedGetter(key);
         sharedProperty.set = userDef.set;
       }
 

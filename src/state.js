@@ -1,3 +1,4 @@
+import Dep from './observer/dep';
 import { observe } from './observer/index'; // node_resolve_plugin 这个插件就能自动找目录下的index 文件
 import Watcher from './observer/watcher';
 import { isFunction } from './utils';
@@ -87,6 +88,7 @@ function createWatcher(vm, key, handler) {
 
 // 多个计算属性，多个 watcher
 function initComputed(vm, computed) {
+    const watchers = (vm._computedWatchers = {});
     for (let key in computed) {
         const userDef = computed[key];
 
@@ -94,19 +96,44 @@ function initComputed(vm, computed) {
         let getter = typeof userDef == 'function' ? userDef : userDef.get;
 
         // 每个计算属性就是 watcher
-        new Watcher(vm, getter, () => {}, { lazy: true }); // 默认不执行
+        // 将watcher 和 计算属性 做映射
+        watchers[key] = new Watcher(vm, getter, () => {}, { lazy: true }); // 默认不执行
 
         // 将 key 定义在 vm 上， 才有了计算属性能使用
         defineComputed(vm, key, userDef); // 就是一个 defineProperty
     }
 }
 
+function createComputedGetter(key) {
+    // 取计算属性的值，走的是这个函数
+    return function computedGetter() {
+        // this._computedWatchers 包含所有的计算属性
+        // 通过key 可以拿到对应的 watcher ， 这个watcher 包含了 getter
+        let watcher = this._computedWatchers[key];
+
+        console.log(watcher.dirty);
+        // 根据 dirty 属性，判断是否需要重新求值，实现缓存功能
+        if (watcher.dirty) {
+            watcher.evaluate();
+        }
+
+        // 如果当前取完值后 Dep.target 还有值，需要继续向上收集
+        if (Dep.target) {
+            // 计算属性 watcher 内部有两个 dep  firstName ，lastName
+            watcher.depend(); // watcher 里 对应了 多个 dep
+        }
+
+        return watcher.value;
+    };
+}
+
 function defineComputed(vm, key, userDef) {
+    console.log('-----------');
     let sharedProperty = {};
     if (typeof userDef == 'function') {
         sharedProperty.get = userDef;
     } else {
-        sharedProperty.get = userDef.get;
+        sharedProperty.get = createComputedGetter(key);
         sharedProperty.set = userDef.set;
     }
     Object.defineProperty(vm, key, sharedProperty);

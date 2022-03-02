@@ -74,6 +74,7 @@ function defineReactive(data, key, value) {
     let dep = new Dep();
     Object.defineProperty(data, key, {
         get() {
+            console.log(dep, key);
             // 取值时，将 watcher 和 dep 对应起来
             // 这个get调用，是模版中调用 {{name}} 进行取值
             if (Dep.target) {

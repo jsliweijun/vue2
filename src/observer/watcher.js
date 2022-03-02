@@ -12,6 +12,7 @@ class Watcher {
         this.exprOrFn = exprOrFn;
         this.user = !!options.user; // 标识是不是用户 watcher
         this.lazy = !!options.lazy;
+        this.dirty = options.lazy; // 如果是计算属性，那么默认值 lazy,dirty 都是 true
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -49,7 +50,7 @@ class Watcher {
         // 执行下面方法，会执行属性的 defineProperty.get 方法， 每个属性都可以收集自己的 watcher
         // 希望一个属性可以对应多个 watcher ，同时一个 watcher 可以对应多个属性。 使用 dep 管理它们多对多的关系。
         pushTarget(this); // Dep.target = watcher
-        const value = this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
+        const value = this.getter.call(this.vm); // render（） 方法对取 vm 上取值， vm._update(vm._render())
         popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
         return value;
     }
@@ -63,8 +64,13 @@ class Watcher {
 
         // 每次更新时，就是 this 执行， 就是 watcher 执行，可以将 watcher 缓存起来，最后一次一起执行更新，
         // 采用异步更新
+        // queueWatcher(this);
 
-        queueWatcher(this);
+        if (this.lazy) {
+            this.dirty = true;
+        } else {
+            queueWatcher(this);
+        }
     }
 
     // 用户更新会执行这个方法
@@ -85,6 +91,20 @@ class Watcher {
             this.depsId.add(id);
             this.deps.push(dep);
             dep.addSub(this);
+        }
+    }
+
+    // 计算属性 重新 get，计算出最新的值
+    evaluate() {
+        this.dirty = false; // 不需要重新get求值了
+        this.value = this.get();
+    }
+
+    // 计算属性 记住了 它的依赖属性。 也需要 被依赖是 firstName lastName 也记住计算属性
+    depend() {
+        let i = this.deps.length;
+        while (i--) {
+            this.deps[i].depend(); //firstName lastName 收集渲染watcher
         }
     }
 }

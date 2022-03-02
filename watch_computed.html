@@ -7,7 +7,10 @@
         <title>Document</title>
     </head>
     <body>
-        <div id="app">{{fullName}} ----- {{fullName}}</div>
+        <!-- 页面直接写计算属性，fName 没有收集渲染watcher 它是直接执行了 计算属性的 get方法 ,计算属性
+        没有 dep 收集不到 watcher ，它让 依赖的属性去收集 渲染watcehr  -->
+        <!-- firstName 是在计算属性中，所以会收集计算属性watcher，没有收集渲染watcher -->
+        <div id="app">{{fName}}</div>
         <!-- <script src="./node_modules/vue/dist/vue.js"></script> -->
         <script src="./dist/vue.js"></script>
         <script>
@@ -32,7 +35,9 @@
                     },
                     fName: {
                         get() {
-                            return 'xxx';
+                            console.log('computed 没有缓存');
+                            // 下面的两个属性只有计算属性watcher ，页面没有使用，没有 渲染watcehr
+                            return this.firstName + this.lastName;
                         },
                         set(newValue) {
                             console.log(newValue);
@@ -56,9 +61,12 @@
 
             // 测试 计算属性
 
-            vm.fullName;
-            vm.fullName;
-            vm.fullName;
+            // vm.fName;
+            // vm.fName;
+            setTimeout(() => {
+                vm.firstName = 'xxxx';
+            }, 1000);
+            // console.log(vm.fName); // 这里变成新的了， 但是页面没有更新，
 
             // setTimeout(() => {
             //     vm.firstName = 77777;
