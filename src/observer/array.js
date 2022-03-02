@@ -35,5 +35,8 @@ methods.forEach((method) => {
         if (inserted) {
             ob.observeArray(inserted);
         }
+
+        // 更新操作，触发视图更新, 数组的 observer.dep 属性
+        ob.dep.notify();
     };
 });
