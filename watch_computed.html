@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Document</title>
+    </head>
+    <body>
+        <div id="app">{{name}}</div>
+        <!-- <script src="./node_modules/vue/dist/vue.js"></script> -->
+        <script src="./dist/vue.js"></script>
+        <script>
+            // watcher 是个 渲染watcher ，实现页面视图更新
+            const vm = new Vue({
+                el: '#app',
+                data: {
+                    name: 'zs',
+                    age: { n: 100 }
+                },
+                methods: {
+                    test() {}
+                },
+                watch: {
+                    name(newValue, oldValue) {
+                        console.log('watch 执行');
+                        console.log(newValue, oldValue);
+                    }
+                }
+            });
+
+            vm.$watch('name', () => {
+                console.log('----------');
+            });
+            setTimeout(() => {
+                vm.name = 3;
+            }, 1000);
+        </script>
+    </body>
+</html>

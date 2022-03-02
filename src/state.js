@@ -1,4 +1,5 @@
 import { observe } from './observer/index'; // node_resolve_plugin 这个插件就能自动找目录下的index 文件
+import Watcher from './observer/watcher';
 import { isFunction } from './utils';
 
 // 状态的初始化
@@ -13,9 +14,26 @@ export function initState(vm) {
     // if (opts.computed) {
     //     initComputed();
     // }
-    // if (opts.watch) {
-    //     initWatch();
-    // }
+    if (opts.watch) {
+        initWatch(vm, opts.watch);
+    }
+}
+
+export function stateMixin(Vue) {
+    // 渲染 watcher 通过 页面使用数据调用get
+    // 用户 watcher 是通过调用 get方式实现 依赖收集的
+    Vue.prototype.$watch = function (key, handler, options = {}) {
+        // watch 可以传入选项参数 deep immediate
+        options.user = true; // 是用户写的 watcher
+
+        // vm name ,用户回调， options.user
+        let watcher = new Watcher(this, key, handler, options);
+
+        // 实现立即执行
+        if (options.immediate) {
+            handler(watcher.value);
+        }
+    };
 }
 
 function proxy(vm, source, key) {
@@ -47,4 +65,22 @@ function initData(vm) {
 
     //  这里就获取到数据了，就要进行数据的响应式功能
     observe(data);
+}
+
+function initWatch(vm, watch) {
+    for (let key in watch) {
+        let handler = watch[key];
+
+        if (Array.isArray(handler)) {
+            for (let i = 0; i < handler.length; i++) {
+                createWatcher(vm, key, handler[i]);
+            }
+        } else {
+            createWatcher(vm, key, handler);
+        }
+    }
+}
+
+function createWatcher(vm, key, handler) {
+    return vm.$watch(key, handler);
 }

@@ -10,6 +10,7 @@ class Watcher {
     constructor(vm, exprOrFn, cb, options) {
         this.vm = vm;
         this.exprOrFn = exprOrFn;
+        this.user = !!options.user; // 标识是不是用户 watcher
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -19,9 +20,25 @@ class Watcher {
 
         // 默认应该让 exprOrFn 执行， exprOrFn 方法做了什么？ 执行render （去vm 上进行取值了），所以可以理解为 getter
 
-        this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
+        if (typeof exprOrFn == 'string') {
+            this.getter = function () {
+                //需要将表达式转化为函数
 
-        this.get(); // 默认初始化， 要取值
+                //进行数据取值，进行依赖收集
+                // age.n  vm['age.n'] => vm[age][n]
+                let path = exprOrFn.split('.');
+                let obj = vm;
+                for (let i = 0; i < path.length; i++) {
+                    obj = obj[path[i]];
+                }
+                return obj;
+            };
+        } else {
+            this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
+        }
+
+        // 第一次的vlaue
+        this.value = this.get(); // 默认初始化， 要取值
     }
 
     get() {
@@ -30,8 +47,9 @@ class Watcher {
         // 执行下面方法，会执行属性的 defineProperty.get 方法， 每个属性都可以收集自己的 watcher
         // 希望一个属性可以对应多个 watcher ，同时一个 watcher 可以对应多个属性。 使用 dep 管理它们多对多的关系。
         pushTarget(this); // Dep.target = watcher
-        this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
+        const value = this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
         popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
+        return value;
     }
 
     // vue 中的更新操作是异步的
@@ -47,8 +65,14 @@ class Watcher {
         queueWatcher(this);
     }
 
+    // 用户更新会执行这个方法
     run() {
-        this.get();
+        let newValue = this.get();
+        let oldVlaue = this.value;
+        this.value = newValue;
+        if (this.user) {
+            this.cb.call(this.vm, newValue, oldVlaue);
+        }
     }
 
     // 记住这个组件模版中使用了哪些属性数据 {{name}} {{name}}  {{age}}

@@ -415,6 +415,8 @@
 
         this.vm = vm;
         this.exprOrFn = exprOrFn;
+        this.user = !!options.user; // 标识是不是用户 watcher
+
         this.cb = cb;
         this.options = options;
         this.id = id++; // 每个实例都身份证号
@@ -422,9 +424,26 @@
         this.deps = [];
         this.depsId = new Set(); // 默认应该让 exprOrFn 执行， exprOrFn 方法做了什么？ 执行render （去vm 上进行取值了），所以可以理解为 getter
 
-        this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
+        if (typeof exprOrFn == 'string') {
+          this.getter = function () {
+            //需要将表达式转化为函数
+            //进行数据取值，进行依赖收集
+            // age.n  vm['age.n'] => vm[age][n]
+            var path = exprOrFn.split('.');
+            var obj = vm;
 
-        this.get(); // 默认初始化， 要取值
+            for (var i = 0; i < path.length; i++) {
+              obj = obj[path[i]];
+            }
+
+            return obj;
+          };
+        } else {
+          this.getter = exprOrFn; // render(){_c(div,{},_v(name))}
+        } // 第一次的vlaue
+
+
+        this.value = this.get(); // 默认初始化， 要取值
       }
 
       _createClass(Watcher, [{
@@ -435,9 +454,11 @@
           // 希望一个属性可以对应多个 watcher ，同时一个 watcher 可以对应多个属性。 使用 dep 管理它们多对多的关系。
           pushTarget(this); // Dep.target = watcher
 
-          this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
+          var value = this.getter(); // render（） 方法对取 vm 上取值， vm._update(vm._render())
 
           popTarget(); // Dep.target = null , 如果 Dep.target 有值就说明这个变量在模版中使用了。
+
+          return value;
         } // vue 中的更新操作是异步的
 
       }, {
@@ -450,11 +471,18 @@
           // 每次更新时，就是 this 执行， 就是 watcher 执行，可以将 watcher 缓存起来，最后一次一起执行更新，
           // 采用异步更新
           queueWatcher(this);
-        }
+        } // 用户更新会执行这个方法
+
       }, {
         key: "run",
         value: function run() {
-          this.get();
+          var newValue = this.get();
+          var oldVlaue = this.value;
+          this.value = newValue;
+
+          if (this.user) {
+            this.cb.call(this.vm, newValue, oldVlaue);
+          }
         } // 记住这个组件模版中使用了哪些属性数据 {{name}} {{name}}  {{age}}
         // 一个模版中使用了 多次 name ，只需要记住一次就够了
 
@@ -711,10 +739,27 @@
       // if (opts.computed) {
       //     initComputed();
       // }
-      // if (opts.watch) {
-      //     initWatch();
-      // }
 
+
+      if (opts.watch) {
+        initWatch(vm, opts.watch);
+      }
+    }
+    function stateMixin(Vue) {
+      // 渲染 watcher 通过 页面使用数据调用get
+      // 用户 watcher 是通过调用 get方式实现 依赖收集的
+      Vue.prototype.$watch = function (key, handler) {
+        var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+        // watch 可以传入选项参数 deep immediate
+        options.user = true; // 是用户写的 watcher
+        // vm name ,用户回调， options.user
+
+        var watcher = new Watcher(this, key, handler, options); // 实现立即执行
+
+        if (options.immediate) {
+          handler(watcher.value);
+        }
+      };
     }
 
     function proxy(vm, source, key) {
@@ -744,6 +789,24 @@
 
 
       observe(data);
+    }
+
+    function initWatch(vm, watch) {
+      for (var key in watch) {
+        var handler = watch[key];
+
+        if (Array.isArray(handler)) {
+          for (var i = 0; i < handler.length; i++) {
+            createWatcher(vm, key, handler[i]);
+          }
+        } else {
+          createWatcher(vm, key, handler);
+        }
+      }
+    }
+
+    function createWatcher(vm, key, handler) {
+      return vm.$watch(key, handler);
     }
 
     function initMixin(Vue) {
@@ -855,6 +918,8 @@
     renderMixin(Vue); // _render
 
     lifecycleMixin(Vue); // _update
+
+    stateMixin(Vue);
 
     return Vue;
 

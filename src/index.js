@@ -1,6 +1,7 @@
 import { initMixin } from './init';
 import { renderMixin } from './render';
 import { lifecycleMixin } from './lifecycle';
+import { stateMixin } from './state';
 
 // Vue 是一个构造函数
 function Vue(options) {
@@ -15,5 +16,6 @@ function Vue(options) {
 initMixin(Vue);
 renderMixin(Vue); // _render
 lifecycleMixin(Vue); // _update
+stateMixin(Vue);
 
 export default Vue;
