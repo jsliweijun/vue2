@@ -40,9 +40,9 @@ export function initMixin(Vue) {
             let template = options.template;
             if (!template && el) {
                 template = el.outerHTML;
-                let render = compileToFunction(template);
-                options.render = render; // 就是渲染函数
             }
+            let render = compileToFunction(template);
+            options.render = render; // 就是渲染函数
         }
         // options.render  就是渲染函数
         console.log(options.render); // 调用render 方法 ，渲染成真实 dom 替换掉页面的内容

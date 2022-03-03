@@ -55,6 +55,18 @@ function mergeHook(parentVal, childVal) {
     }
 }
 
+strats.components = function (parentVal, childVal) {
+    // Vue.options.components
+    let options = Object.create(parentVal);
+    // 将子类的属性拷贝到 options上
+    if (childVal) {
+        for (let key in childVal) {
+            options[key] = childVal[key];
+        }
+    }
+    return options;
+};
+
 export function mergeOptions(parent, child) {
     const options = {}; // 合并后的结果
 
@@ -88,4 +100,11 @@ export function mergeOptions(parent, child) {
     }
 
     return options;
+}
+
+export function isReservedTag(str) {
+    let reservedTag = 'a,div,span,p,img,button,ul,li';
+    // 源码根据 ，分割，生成对象 映射表 ，{a:true , div : true , p:true}
+
+    return reservedTag.includes(str);
 }

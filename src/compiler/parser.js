@@ -12,55 +12,54 @@ const attribute =
 const startTagClose = /^\s*(\/?)>/; //     />   <div/>
 const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g; // {{aaaaa}}
 
-/**
- *  将解析后的结果，组装层一个树结构 ，通过 栈 实现。
- */
-function createAstElement(tagName, attrs) {
-    return {
-        tag: tagName,
-        type: 1,
-        children: [],
-        parent: null,
-        attrs
-    };
-}
-
-let root = null; // 根元素
-let stack = [];
-
-// 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
-function start(tagName, attribute) {
-    // console.log(tagName,attribute)
-    let parent = stack[stack.length - 1];
-    let element = createAstElement(tagName, attribute);
-    if (!root) {
-        root = element;
-    }
-    if (parent) {
-        element.parent = parent; // 当放入栈中时，记录父亲是谁
-        parent.children.push(element);
-    }
-    stack.push(element);
-}
-function end(tagName) {
-    // console.log(tagName)
-    let last = stack.pop();
-    if (last.tag !== tagName) {
-        throw new Error('标签有错误');
-    }
-}
-
-function chars(text) {
-    // console.log(text)
-    text = text.replace(/\s/g, '');
-    let parent = stack[stack.length - 1];
-    if (text) {
-        parent.children.push({ type: 3, text });
-    }
-}
-
 // html 字符传解析成 对应的脚本 来触发 tokens <div id="app">{{name}}</div>
 export function parserHTML(html) {
+    /**
+     *  将解析后的结果，组装层一个树结构 ，通过 栈 实现。
+     */
+    function createAstElement(tagName, attrs) {
+        return {
+            tag: tagName,
+            type: 1,
+            children: [],
+            parent: null,
+            attrs
+        };
+    }
+
+    // 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
+    function start(tagName, attribute) {
+        // console.log(tagName,attribute)
+        let parent = stack[stack.length - 1];
+        let element = createAstElement(tagName, attribute);
+        if (!root) {
+            root = element;
+        }
+        if (parent) {
+            element.parent = parent; // 当放入栈中时，记录父亲是谁
+            parent.children.push(element);
+        }
+        stack.push(element);
+    }
+    function end(tagName) {
+        // console.log(tagName)
+        let last = stack.pop();
+        if (last.tag !== tagName) {
+            throw new Error('标签有错误');
+        }
+    }
+
+    function chars(text) {
+        // console.log(text)
+        text = text.replace(/\s/g, '');
+        let parent = stack[stack.length - 1];
+        if (text) {
+            parent.children.push({ type: 3, text });
+        }
+    }
+
+    let root = null; // 根元素(自定义组件时它时独立的)
+    let stack = [];
     function advance(len) {
         html = html.substring(len);
     }

@@ -19,67 +19,67 @@
     var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/; // a=b  a="b"  a='b'
 
     var startTagClose = /^\s*(\/?)>/; //     />   <div/>
-
-    /**
-     *  将解析后的结果，组装层一个树结构 ，通过 栈 实现。
-     */
-
-    function createAstElement(tagName, attrs) {
-      return {
-        tag: tagName,
-        type: 1,
-        children: [],
-        parent: null,
-        attrs: attrs
-      };
-    }
-
-    var root = null; // 根元素
-
-    var stack$1 = []; // 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
-
-    function start(tagName, attribute) {
-      // console.log(tagName,attribute)
-      var parent = stack$1[stack$1.length - 1];
-      var element = createAstElement(tagName, attribute);
-
-      if (!root) {
-        root = element;
-      }
-
-      if (parent) {
-        element.parent = parent; // 当放入栈中时，记录父亲是谁
-
-        parent.children.push(element);
-      }
-
-      stack$1.push(element);
-    }
-
-    function end(tagName) {
-      // console.log(tagName)
-      var last = stack$1.pop();
-
-      if (last.tag !== tagName) {
-        throw new Error('标签有错误');
-      }
-    }
-
-    function chars(text) {
-      // console.log(text)
-      text = text.replace(/\s/g, '');
-      var parent = stack$1[stack$1.length - 1];
-
-      if (text) {
-        parent.children.push({
-          type: 3,
-          text: text
-        });
-      }
-    } // html 字符传解析成 对应的脚本 来触发 tokens <div id="app">{{name}}</div>
-
+    // html 字符传解析成 对应的脚本 来触发 tokens <div id="app">{{name}}</div>
 
     function parserHTML(html) {
+      /**
+       *  将解析后的结果，组装层一个树结构 ，通过 栈 实现。
+       */
+      function createAstElement(tagName, attrs) {
+        return {
+          tag: tagName,
+          type: 1,
+          children: [],
+          parent: null,
+          attrs: attrs
+        };
+      } // 每遇见一个开始标签就创建一个 element 元素 ，然后放入栈中，构建树，记录parent
+
+
+      function start(tagName, attribute) {
+        // console.log(tagName,attribute)
+        var parent = stack[stack.length - 1];
+        var element = createAstElement(tagName, attribute);
+
+        if (!root) {
+          root = element;
+        }
+
+        if (parent) {
+          element.parent = parent; // 当放入栈中时，记录父亲是谁
+
+          parent.children.push(element);
+        }
+
+        stack.push(element);
+      }
+
+      function end(tagName) {
+        // console.log(tagName)
+        var last = stack.pop();
+
+        if (last.tag !== tagName) {
+          throw new Error('标签有错误');
+        }
+      }
+
+      function chars(text) {
+        // console.log(text)
+        text = text.replace(/\s/g, '');
+        var parent = stack[stack.length - 1];
+
+        if (text) {
+          parent.children.push({
+            type: 3,
+            text: text
+          });
+        }
+      }
+
+      var root = null; // 根元素(自定义组件时它时独立的)
+
+      var stack = [];
+
       function advance(len) {
         html = html.substring(len);
       }
@@ -436,6 +436,19 @@
       }
     }
 
+    strats.components = function (parentVal, childVal) {
+      // Vue.options.components
+      var options = Object.create(parentVal); // 将子类的属性拷贝到 options上
+
+      if (childVal) {
+        for (var key in childVal) {
+          options[key] = childVal[key];
+        }
+      }
+
+      return options;
+    };
+
     function mergeOptions(parent, child) {
       var options = {}; // 合并后的结果
 
@@ -469,6 +482,11 @@
       }
 
       return options;
+    }
+    function isReservedTag(str) {
+      var reservedTag = 'a,div,span,p,img,button,ul,li'; // 源码根据 ，分割，生成对象 映射表 ，{a:true , div : true , p:true}
+
+      return reservedTag.includes(str);
     }
 
     var queue = [];
@@ -628,6 +646,10 @@
     }();
 
     function patch(oldVnode, vnode) {
+      if (!oldVnode) {
+        return createElm(vnode); // 如果没有 el 元素，那就直接根据虚拟节点返回真实节点。 子组件场景
+      }
+
       if (oldVnode.nodeType == 1) {
         // 用vnode  来生成真实dom 替换原来的 dom 元素
         var parentElm = oldVnode.parentNode;
@@ -636,7 +658,21 @@
         parentElm.removeChild(oldVnode);
         return elm;
       }
-    }
+    } // 创建组件
+
+    function createComponent$1(vnode) {
+      var i = vnode.data;
+
+      if ((i = i.hook) && (i = i.init)) {
+        i(vnode); // 调用 init 方法
+      }
+
+      if (vnode.componentInstance) {
+        // 有属性说明子组件new 完毕了， 并且组件对应的真实dom
+        return true;
+      }
+    } // 创建真实的元素 dom
+
 
     function createElm(vnode) {
       var tag = vnode.tag;
@@ -646,6 +682,11 @@
           vnode.vm;
 
       if (typeof tag === 'string') {
+        if (createComponent$1(vnode)) {
+          // 返回组件的真实节点
+          return vnode.componentInstance.$el;
+        }
+
         vnode.el = document.createElement(tag);
         children.forEach(function (child) {
           vnode.el.appendChild(createElm(child));
@@ -1035,9 +1076,10 @@
 
           if (!template && el) {
             template = el.outerHTML;
-            var render = compileToFunction(template);
-            options.render = render; // 就是渲染函数
           }
+
+          var render = compileToFunction(template);
+          options.render = render; // 就是渲染函数
         } // options.render  就是渲染函数
 
 
@@ -1055,20 +1097,53 @@
         children[_key - 3] = arguments[_key];
       }
 
-      return vnode(vm, tag, data, data.key, children, undefined);
+      // tag 可能是一个 组件， 应该渲染一个组件的 vnode
+      if (isReservedTag(tag)) {
+        return vnode(vm, tag, data, data.key, children, undefined);
+      } else {
+        console.log(tag);
+        var Ctor = vm.$options.components[tag];
+        return createComponent(vm, tag, data, data.key, children, Ctor);
+      }
+    } // 创建组件的虚拟节点, 传入的组件可能是对象，也可能是函数
+    // 为了区分组件和原生元素 ， data.hook , componentOption
+
+    function createComponent(vm, tag, data, key, children, Ctor) {
+      if (isObject(Ctor)) {
+        Ctor = vm.$options._base.extend(Ctor);
+      } // console.log('Ctor', Ctor);
+      // 渲染组件时，需要调用此初始化方法。
+
+
+      data.hook = {
+        init: function init(vnode) {
+          // 如何将子组件对象 变成真实dom
+          var vm = vnode.componentInstance = new Ctor({
+            _isComponent: true
+          }); // 创建子组件, 会进行将该选项和组件的配置进行合并。
+
+          vm.$mount(); // 组件挂载完毕后， 会在 vnode.componentInstance.$el => <button>
+        }
+      };
+      return vnode(vm, "vue-component-".concat(tag), data, key, undefined, undefined, {
+        Ctor: Ctor,
+        children: children
+      });
     }
+
     function createTextElement(vm, text) {
       return vnode(vm, undefined, undefined, undefined, undefined, text);
     }
 
-    function vnode(vm, tag, data, key, children, text) {
+    function vnode(vm, tag, data, key, children, text, componentOptions) {
       return {
         vm: vm,
         tag: tag,
         data: data,
         key: key,
         children: children,
-        text: text
+        text: text,
+        componentOptions: componentOptions
       };
     }
 
@@ -1109,9 +1184,35 @@
       Vue.mixin = function (options) {
         // 生命周期方法合并是放在一个数组里     {}    {beforeCreate:fn}  => {beforecreate:[fn]}
         //                                 {beforecreate:[fn]}  {beforecreate:fn}  => {beforecreate:[fn,fn]}
-        this.options = mergeOptions(this.options, options);
-        console.log(this.options);
+        this.options = mergeOptions(this.options, options); // console.log(this.options);
+
         return this;
+      }; //
+
+
+      Vue.options._base = Vue; // 无论后续创建的多少个子类，都可以通过这个 _base 找到 Vue
+
+      Vue.options.components = {};
+
+      Vue.component = function (id, definition) {
+        // 保证组件的隔离， 每个组件都会产生一个新的类，去继承父类。
+        definition = this.options._base.extend(definition);
+        this.options.components[id] = definition; // 选项合并 组件内的 compoents 比 Vue.component() 定义的组件级别高。这里要用继承的方式。
+      }; // 给一个对象，返回一个类
+      // extend 方法就是产生一个继承于 Vue 的类，并且身上应该有父类的所有功能。
+
+
+      Vue.extend = function (opts) {
+        var Super = this; // 每个组件一个子类，什么时候被创建成对象？
+
+        var Sub = function VueComponent(options) {
+          this._init(options);
+        };
+
+        Sub.prototype = Object.create(Super.prototype);
+        Sub.prototype.constructor = Sub;
+        Sub.options = mergeOptions(Super.options, opts);
+        return Sub;
       };
     }
 
