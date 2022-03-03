@@ -2,6 +2,7 @@ import { initMixin } from './init';
 import { renderMixin } from './render';
 import { lifecycleMixin } from './lifecycle';
 import { stateMixin } from './state';
+import { initGloabalApi } from './global-api/index';
 
 // Vue 是一个构造函数
 function Vue(options) {
@@ -17,5 +18,8 @@ initMixin(Vue);
 renderMixin(Vue); // _render
 lifecycleMixin(Vue); // _update
 stateMixin(Vue);
+
+// 在类上扩展， 使用是 Vue.mixin
+initGloabalApi(Vue);
 
 export default Vue;

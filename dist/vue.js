@@ -268,6 +268,32 @@
       // =》 虚拟 DOM （增加额外的属性） =》 生成真实 dom
     }
 
+    function ownKeys(object, enumerableOnly) {
+      var keys = Object.keys(object);
+
+      if (Object.getOwnPropertySymbols) {
+        var symbols = Object.getOwnPropertySymbols(object);
+        enumerableOnly && (symbols = symbols.filter(function (sym) {
+          return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+        })), keys.push.apply(keys, symbols);
+      }
+
+      return keys;
+    }
+
+    function _objectSpread2(target) {
+      for (var i = 1; i < arguments.length; i++) {
+        var source = null != arguments[i] ? arguments[i] : {};
+        i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
+          _defineProperty(target, key, source[key]);
+        }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
+          Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+        });
+      }
+
+      return target;
+    }
+
     function _typeof(obj) {
       "@babel/helpers - typeof";
 
@@ -301,6 +327,21 @@
         writable: false
       });
       return Constructor;
+    }
+
+    function _defineProperty(obj, key, value) {
+      if (key in obj) {
+        Object.defineProperty(obj, key, {
+          value: value,
+          enumerable: true,
+          configurable: true,
+          writable: true
+        });
+      } else {
+        obj[key] = value;
+      }
+
+      return obj;
     }
 
     var id$1 = 0;
@@ -374,6 +415,60 @@
         Promise.resolve().then(flushCallbacks);
         waiting = true;
       }
+    }
+    var lifeCycleHooks = ['beforeCreate', 'created', 'beforeMount', 'mounted', 'beforeUpdate', 'beforeDestroy', 'destroyed']; //let strategy;
+    // 存放各种策略
+
+    var strats = {};
+    lifeCycleHooks.forEach(function (hook) {
+      strats[hook] = mergeHook;
+    }); // 钩子函数合并的原理
+
+    function mergeHook(parentVal, childVal) {
+      if (childVal) {
+        if (parentVal) {
+          return parentVal.concat(childVal);
+        } else {
+          return [childVal];
+        }
+      } else {
+        return parentVal;
+      }
+    }
+
+    function mergeOptions(parent, child) {
+      var options = {}; // 合并后的结果
+
+      for (var key in parent) {
+        mergeField(key);
+      } //处理 child 中新的属性
+
+
+      for (var _key in child) {
+        if (parent.hasOwnProperty(_key)) {
+          continue;
+        }
+
+        mergeField(_key);
+      }
+
+      function mergeField(key) {
+        var parentVal = parent[key];
+        var chidlVal = child[key]; // 采用策略模式，针对不同的属性进行合并
+
+        if (strats[key]) {
+          // 如果有对应的策略就调用对应的策略即可
+          options[key] = strats[key](parentVal, chidlVal);
+        } else {
+          if (isObject(parentVal) && isObject(chidlVal)) {
+            options[key] = _objectSpread2(_objectSpread2({}, parentVal), chidlVal);
+          } else {
+            options[key] = child[key] || parent[key];
+          }
+        }
+      }
+
+      return options;
     }
 
     var queue = [];
@@ -584,13 +679,23 @@
 
       }; // 使用观察者模式，实现数据变化页面更新： 属性是“被观察者”  ， 刷新页面：“观察者”
       // updateComponent();
-      // 他是一个渲染watcher ，后续还有其他watcher
-      // 渲染一个组件
 
+
+      callHook(vm, 'beforeMount'); // 他是一个渲染watcher ，后续还有其他watcher
+      // 渲染一个组件
 
       new Watcher(vm, updateComponent, function () {
         console.log('更新视图了');
       }, true);
+    }
+    function callHook(vm, hook) {
+      var handlers = vm.$options[hook];
+
+      if (handlers) {
+        for (var i = 0; i < handlers.length; i++) {
+          handlers[i].call(vm);
+        }
+      }
     }
 
     var oldArrayPrototype = Array.prototype;
@@ -900,14 +1005,17 @@
       Vue.prototype._init = function (options) {
         // console.log(options);
         // el , data
-        var vm = this;
-        vm.$options = options; // 选项，用户使用时会调用 $options ,所以框架底层进行这样创建，后面会扩展他
-        // 对数据进行初始化，watch  computed props  data ，都是数据
+        var vm = this; // vm.$options = options; // 选项，用户使用时会调用 $options ,所以框架底层进行这样创建，后面会扩展他
+
+        vm.$options = mergeOptions(vm.constructor.options, options); // 调用生命周期钩子
+
+        callHook(vm, 'beforeCreate'); // 对数据进行初始化，watch  computed props  data ，都是数据
         //  数据劫持：就是当操作数据时，让我们知道了修改了，获取了这个数据，然后我们就可以进行做 更新试图 等功能。
         // 加get set 方法，第一步是加了数据监控等功能，
 
         initState(vm); // vm.$options.data 将数据处理放在另外一个方法中，状态初始化
-        // 将数据挂在 模版上
+
+        callHook(vm, 'created'); // 将数据挂在 模版上
 
         if (vm.$options.el) {
           // 将数据挂载到这个模板上
@@ -993,6 +1101,20 @@
       };
     }
 
+    function initGloabalApi(Vue) {
+      // 用来存放全局配置的， Vue.component  , Vue.filters  Vue.directives  都放在这个对象里面
+      // 每个组件初始化时候都会和这个 options 进行合并
+      Vue.options = {};
+
+      Vue.mixin = function (options) {
+        // 生命周期方法合并是放在一个数组里     {}    {beforeCreate:fn}  => {beforecreate:[fn]}
+        //                                 {beforecreate:[fn]}  {beforecreate:fn}  => {beforecreate:[fn,fn]}
+        this.options = mergeOptions(this.options, options);
+        console.log(this.options);
+        return this;
+      };
+    }
+
     function Vue(options) {
       this._init(options);
     } // 这样添加会写很多这样的代码，实现功能拆分到其他文件中，使用下面mixin 方式，扩展原型方法
@@ -1006,7 +1128,9 @@
 
     lifecycleMixin(Vue); // _update
 
-    stateMixin(Vue);
+    stateMixin(Vue); // 在类上扩展， 使用是 Vue.mixin
+
+    initGloabalApi(Vue);
 
     return Vue;
 

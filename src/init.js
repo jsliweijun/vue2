@@ -1,6 +1,7 @@
 import { compileToFunction } from './compiler/index';
-import { mountComponent } from './lifecycle';
+import { callHook, mountComponent } from './lifecycle';
 import { initState } from './state';
+import { mergeOptions } from './utils';
 
 //  在 vue 上进行一次混合操作，扩展添加方法
 export function initMixin(Vue) {
@@ -8,12 +9,18 @@ export function initMixin(Vue) {
         // console.log(options);
         // el , data
         const vm = this;
-        vm.$options = options; // 选项，用户使用时会调用 $options ,所以框架底层进行这样创建，后面会扩展他
+        // vm.$options = options; // 选项，用户使用时会调用 $options ,所以框架底层进行这样创建，后面会扩展他
+        vm.$options = mergeOptions(vm.constructor.options, options);
+
+        // 调用生命周期钩子
+        callHook(vm, 'beforeCreate');
 
         // 对数据进行初始化，watch  computed props  data ，都是数据
         //  数据劫持：就是当操作数据时，让我们知道了修改了，获取了这个数据，然后我们就可以进行做 更新试图 等功能。
         // 加get set 方法，第一步是加了数据监控等功能，
         initState(vm); // vm.$options.data 将数据处理放在另外一个方法中，状态初始化
+
+        callHook(vm, 'created');
 
         // 将数据挂在 模版上
         if (vm.$options.el) {

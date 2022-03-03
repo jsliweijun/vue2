@@ -27,6 +27,8 @@ export function mountComponent(vm, el) {
     // 使用观察者模式，实现数据变化页面更新： 属性是“被观察者”  ， 刷新页面：“观察者”
     // updateComponent();
 
+    callHook(vm, 'beforeMount');
+
     // 他是一个渲染watcher ，后续还有其他watcher
     // 渲染一个组件
     new Watcher(
@@ -37,4 +39,13 @@ export function mountComponent(vm, el) {
         },
         true
     );
+}
+
+export function callHook(vm, hook) {
+    let handlers = vm.$options[hook];
+    if (handlers) {
+        for (let i = 0; i < handlers.length; i++) {
+            handlers[i].call(vm);
+        }
+    }
 }
